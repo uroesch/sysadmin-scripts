@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+
+# -----------------------------------------------------------------------------
+# Globals
+# -----------------------------------------------------------------------------
+declare -r VERSION=0.9.0
+declare -r SCRIPT=${0##*/}
+declare -r SCRIPT_DIR=$(cd $(dirname ${0}); pwd)
+declare -r BASE_DIR=${HOME}/${SCRIPT%.*}
+declare -r USER_ID=$(id -u)
+declare -r LOGIN_ID=$(who am i | awk '{ print $1 }')
+declare -g USER_NAME=""
+declare -g GROUP_NAME=""
+declare -g OLD_UID=""
+declare -g OLD_GID=""
+declare -g NEW_UID=""
+declare -g NEW_GID=""
+declare -a MPOINTS=()
+declare -g FILE_BASE=""
+declare -g PRE_CHANGE=""
+declare -g POST_CHANGE=""
+declare -g CONFIRM_CHANGE=""
+
+# -----------------------------------------------------------------------------
+# Run as root
+# -----------------------------------------------------------------------------
+(( ${USER_ID} != 0 )) && exec sudo bash ${SCRIPT_DIR}/${SCRIPT} "${@}"
+
+# -----------------------------------------------------------------------------
+# Functions
+# -----------------------------------------------------------------------------
+function ----() {
+  printf "%0.1s" -{0..80} $'\n'
+}
+
+function usage() {
+  local exit_code=${1}; shift;
+  error_message ${exit_code}
+  cat << USAGE
+  Usage:
+    ${SCRIPT} <options>
+
+  Options:
+    -g | --group Group name to convert
+    -u | --user User name to convert
+   -ou | --old-uid Old UID matching user name
+   -nu | --new-uid New UID for user name
+   -og | --old-gid Old GID matching group name
+   -ng | --new-gid New GID for group name
+
+  Description:
+    Script scans the file system and changes the user and group
+    assignment of files to the newly specified UID and GID.
+    Note: The script does not change the /etc/passwd and /etc/group files!
+
+USAGE
+  exit ${exit_code}
+}
+
+function error_message() {
+  local exit_code=$1; shift;
+  case ${exit_code} in
+  0)   return 0;;
+  1)   message="Unknown option";;
+  10)  message="Missing group and user!";;
+  20)  message="Missing old and/or new UID!";;
+  30)  message="Missing old and/or new GID!";;
+  esac
+  printf "%s" $'\n' $(----) $'\n' "${message}" $'\n' $(----) $'\n' $'\n'
+}
+
+function prepare_environment() {
+  [[ -d ${BASE_DIR} ]] || mkdir -p ${BASE_DIR}
+}
+
+
+function parse_options() {
+  while (( ${#} > 0 )); do
+    case $1 in
+    -g|--group)    shift; GROUP_NAME=${1};;
+    -u|--user)     shift; USER_NAME=${1};;
+    -ou|--old-uid) shift; OLD_UID=${1};;
+    -nu|--new-uid) shift; NEW_UID=${1};; 
+    -og|--old-gid) shift; OLD_GID=${1};;
+    -ng|--new-gid) shift; NEW_GID=${1};;
+    -h|--help)     usage 0;;
+    -*)            usage 1;;
+    esac
+    shift
+  done
+}
+
+function check_options() {
+  [[ -z ${USER_NAME} && -z ${GROUP_NAME} ]] && usage 10;
+  if [[ -n ${USER_NAME} ]]; then
+    [[ -z ${NEW_UID} || -z ${OLD_UID} ]] && usage 20;
+  fi
+  if [[ -n ${GROUP_NAME} ]]; then
+    [[ -z ${NEW_GID} || -z ${OLD_GID} ]] && usage 30;
+  fi
+  return 0
+}
+
+function file_names() {
+  local user_name=${1}; shift;
+  local group_name=${1}; shift;
+  FILE_BASE=${BASE_DIR}/${user_name:-NOUSER}-${group_name:-NOGROUP}.files
+  PRE_CHANGE=${FILE_BASE}.pre-change
+  POST_CHANGE=${FILE_BASE}.post-change
+  CONFIRM_CHANGE=${FILE_BASE}.confirm-change
+}
+
+function find_mount_points() {
+  MPOINTS=( $(df -lP -x tmpfs | awk '$1 ~ "^/" {print $(NF)}') )
+}
+
+function confirm_files() {
+  local uid=${1}; shift;
+  local gid=${1}; shift;
+  local output=${1}; shift;
+  for mpoint in ${MPOINTS[@]}; do
+    find ${mpoint} \
+      -xdev  \
+      \( -uid ${uid} -o -gid ${gid} \) \
+      -printf "%M|%m|%n|%U|%G|%s|%AF|%AT|%p\n"
+  done | column -t -s '|' > ${output}
+}
+function change_permission() {
+  for mpoint in "${MPOINTS[@]}"; do
+    if [[ -n ${USER_NAME} ]]; then
+      find ${mpoint} -xdev -uid ${OLD_UID} -exec chown ${NEW_UID} "{}" \;
+    fi
+    if [[ -n ${GROUP_NAME} ]]; then
+      find ${mpoint} -xdev -gid ${OLD_GID} -exec chgrp ${NEW_GID} "{}" \;
+    fi
+  done
+}
+
+# -----------------------------------------------------------------------------
+# Main
+# -----------------------------------------------------------------------------
+parse_options "${@}"
+check_options
+find_mount_points
+prepare_environment
+file_names "${USER_NAME}" "${GROUP_NAME}"
+confirm_files ${OLD_UID} ${OLD_GID} ${PRE_CHANGE}
+change_permission
+confirm_files ${OLD_UID} ${OLD_GID} ${POST_CHANGE}
+confirm_files ${NEW_UID} ${NEW_GID} ${CONFIRM_CHANGE}

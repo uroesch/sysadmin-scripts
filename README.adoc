@@ -1,0 +1,75 @@
+= Sysadmin Scripts: A collection of scripts accumulated over the years
+:author: Urs Roesch
+
+Sadly at this point it is only one script more to follow :).
+
+== correct-file-permission
+
+Scans the whole file system looking for files of a certain UID or GID
+and changes it to a new UID or GID. 
+
+[NOTE]
+Works probably only on Linux. Has not been tested on any other 
+
+=== Features
+
+* Scans each file local system separately but skips `tempfs`.
+* Create a log file from before the change. After the change and one with
+  the new UID and GID.
+* As it must run as root the script checks if it running as root, if not
+  execs itself with `sudo`.
+* Does not touch /etc/passwd and /etc/group
+
+=== Examples
+
+==== Fix user's UID
+
+User `veronica` was created with the wrong UID locally and can not
+access the her files on the NFS share. To correct this mishap the local files 
+need to be change from UID `1000` to `1001`.  
+
+===== Step by step
+
+. Change UID of `veronica` from `1000` to `1001` in the `/etc/passwd` file 
+  manually or with the `usermod` command.
+. Run `correct-file-permission --user veronica -ou 1000 -nu 1001` to change
+  every file on the file system that belonged to `veronica` to the new UID.
+. In the root's home directory the log files are stored in the sub directory
+  `correct-file-permission`. Validate them to see if the result is satisfactory.
+
+==== Fix group's GID
+
+The group `staff` was created with the wrong GID locally on a server. To fix the
+GID from `500` to the desired `501` the following steps are necessary.
+
+===== Step by step
+
+. Change GID of `staff` from `500` to `501` in the `/etc/group` and 
+  `/etc/passwd` files.
+. Run `correct-file-permission --group staff -og 500 -ng 501` to change
+  every file on local the file system with GID `500` to `501`.
+. In the root's home directory the log files are stored in the sub directory
+  `correct-file-permission`. Validate them to see if the result is satisfactory.
+
+=== Usage
+
+[source,console]
+----
+  Usage:
+    correct-file-permission <options>
+
+  Options:
+    -g | --group Group name to convert
+    -u | --user User name to convert
+   -ou | --old-uid Old UID matching user name
+   -nu | --new-uid New UID for user name
+   -og | --old-gid Old GID matching group name
+   -ng | --new-gid New GID for group name
+
+  Description:
+    Script scans the file system and changes the user and group
+    assignment of files to the newly specified UID and GID.
+    Note: The script does not change the /etc/passwd and /etc/group files!
+----
+
+// vim: colorcolumn=80 textwidth=80 spell spelllang=en_us :
