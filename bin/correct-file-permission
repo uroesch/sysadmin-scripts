@@ -6,7 +6,7 @@ set -o nounset
 # -----------------------------------------------------------------------------
 # Globals
 # -----------------------------------------------------------------------------
-declare -r VERSION=0.9.0
+declare -r VERSION=0.9.1
 declare -r SCRIPT=${0##*/}
 declare -r SCRIPT_DIR=$(cd $(dirname ${0}); pwd)
 declare -r BASE_DIR=${HOME}/${SCRIPT%.*}
@@ -147,7 +147,7 @@ check_options
 find_mount_points
 prepare_environment
 file_names "${USER_NAME}" "${GROUP_NAME}"
-confirm_files ${OLD_UID} ${OLD_GID} ${PRE_CHANGE}
+confirm_files "${OLD_UID}" "${OLD_GID}" "${PRE_CHANGE}"
 change_permission
-confirm_files ${OLD_UID} ${OLD_GID} ${POST_CHANGE}
-confirm_files ${NEW_UID} ${NEW_GID} ${CONFIRM_CHANGE}
+confirm_files "${OLD_UID}" "${OLD_GID}" "${POST_CHANGE}"
+confirm_files "${NEW_UID}" "${NEW_GID}" "${CONFIRM_CHANGE}"
