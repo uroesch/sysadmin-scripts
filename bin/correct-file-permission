@@ -6,7 +6,7 @@ set -o nounset
 # -----------------------------------------------------------------------------
 # Globals
 # -----------------------------------------------------------------------------
-declare -r VERSION=0.9.2
+declare -r VERSION=0.9.3
 declare -r SCRIPT=${0##*/}
 declare -r AUTHOR="Urs Roesch <github@bun.ch>"
 declare -r LICENSE="GLPv2"
@@ -42,13 +42,14 @@ function usage() {
     ${SCRIPT} <options>
 
   Options:
+    -h | --help           This message
     -g | --group <group>  Group name to convert
     -u | --user <user>    User name to convert
    -ou | --old-uid <UID>  Old UID matching user name
    -nu | --new-uid <UID>  New UID for user name
    -og | --old-gid <GID>  Old GID matching group name
    -ng | --new-gid <GID>  New GID for group name
-   -V  | --version        Print version information and exit
+    -V | --version        Print version information and exit
 
   Description:
     Script scans the file system and changes the user and group

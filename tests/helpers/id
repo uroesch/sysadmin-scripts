@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+# -----------------------------------------------------------------------------
+# This script simulates the id command for automated testing scenarios.
+# -----------------------------------------------------------------------------
+
+declare -r NAME=${0##*/}
+declare -r BIN_DIR=$(cd $(dirname ${0}); pwd)
+declare -- PATH=${PATH/${BIN_DIR}/}
+
+export PATH
+
+echo "$(date +%FT%T) -- ${NAME} ${@}" >> ${BIN_DIR}/${NAME}.log
+
+case "${@}" in
+'-u')
+  echo "0"
+  ;;
+*) 
+  echo ${NAME} ${@}
+  ;;   
+esac
+
