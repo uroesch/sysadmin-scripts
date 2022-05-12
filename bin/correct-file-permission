@@ -1,7 +1,17 @@
 #!/usr/bin/env bash
 
+# -----------------------------------------------------------------------------
+# Setup
+# -----------------------------------------------------------------------------
 set -o errexit
 set -o nounset
+set -o pipefail
+
+# check bash version compatiblity requires 4.0 or better
+shopt -u compat32 2>/dev/null || {
+  printf "\nBash Version 4.0 or higher is required!\n";
+  exit 127;
+}
 
 # -----------------------------------------------------------------------------
 # Globals
@@ -14,17 +24,17 @@ declare -r SCRIPT_DIR=$(cd $(dirname ${0}); pwd)
 declare -r BASE_DIR=${HOME}/${SCRIPT%.*}
 declare -r USER_ID=$(id -u)
 declare -r LOGIN_ID=$(who am i | awk '{ print $1 }')
-declare -g USER_NAME=""
-declare -g GROUP_NAME=""
-declare -g OLD_UID=""
-declare -g OLD_GID=""
-declare -g NEW_UID=""
-declare -g NEW_GID=""
+declare -- USER_NAME=""
+declare -- GROUP_NAME=""
+declare -- OLD_UID=""
+declare -- OLD_GID=""
+declare -- NEW_UID=""
+declare -- NEW_GID=""
 declare -a MPOINTS=()
-declare -g FILE_BASE=""
-declare -g PRE_CHANGE=""
-declare -g POST_CHANGE=""
-declare -g CONFIRM_CHANGE=""
+declare -- FILE_BASE=""
+declare -- PRE_CHANGE=""
+declare -- POST_CHANGE=""
+declare -- CONFIRM_CHANGE=""
 
 
 # -----------------------------------------------------------------------------
