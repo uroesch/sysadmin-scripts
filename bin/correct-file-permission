@@ -6,8 +6,10 @@ set -o nounset
 # -----------------------------------------------------------------------------
 # Globals
 # -----------------------------------------------------------------------------
-declare -r VERSION=0.9.1
+declare -r VERSION=0.9.2
 declare -r SCRIPT=${0##*/}
+declare -r AUTHOR="Urs Roesch <github@bun.ch>"
+declare -r LICENSE="GLPv2"
 declare -r SCRIPT_DIR=$(cd $(dirname ${0}); pwd)
 declare -r BASE_DIR=${HOME}/${SCRIPT%.*}
 declare -r USER_ID=$(id -u)
@@ -24,10 +26,6 @@ declare -g PRE_CHANGE=""
 declare -g POST_CHANGE=""
 declare -g CONFIRM_CHANGE=""
 
-# -----------------------------------------------------------------------------
-# Run as root
-# -----------------------------------------------------------------------------
-(( ${USER_ID} != 0 )) && exec sudo bash ${SCRIPT_DIR}/${SCRIPT} "${@}"
 
 # -----------------------------------------------------------------------------
 # Functions
@@ -44,12 +42,13 @@ function usage() {
     ${SCRIPT} <options>
 
   Options:
-    -g | --group Group name to convert
-    -u | --user User name to convert
-   -ou | --old-uid Old UID matching user name
-   -nu | --new-uid New UID for user name
-   -og | --old-gid Old GID matching group name
-   -ng | --new-gid New GID for group name
+    -g | --group <group>  Group name to convert
+    -u | --user <user>    User name to convert
+   -ou | --old-uid <UID>  Old UID matching user name
+   -nu | --new-uid <UID>  New UID for user name
+   -og | --old-gid <GID>  Old GID matching group name
+   -ng | --new-gid <GID>  New GID for group name
+   -V  | --version        Print version information and exit
 
   Description:
     Script scans the file system and changes the user and group
@@ -58,6 +57,36 @@ function usage() {
 
 USAGE
   exit ${exit_code}
+}
+
+function parse_options() {
+  while (( ${#} > 0 )); do
+    case $1 in
+    -g|--group)    shift; GROUP_NAME=${1};;
+    -u|--user)     shift; USER_NAME=${1};;
+    -ou|--old-uid) shift; OLD_UID=${1};;
+    -nu|--new-uid) shift; NEW_UID=${1};; 
+    -og|--old-gid) shift; OLD_GID=${1};;
+    -ng|--new-gid) shift; NEW_GID=${1};;
+    -h|--help)     usage 0;;
+    -V|--version)  version;;
+    -*)            usage 1;;
+    esac
+    shift
+  done
+}
+
+function version() {
+  printf "%s v%s\nCopyright (c) %s\nLicense - %s\n" \
+    "${SCRIPT}" "${VERSION}" "${AUTHOR}" "${LICENSE}"
+  exit 0
+}
+
+function check_user() {
+  if (( ${USER_ID} != 0 )); then
+    printf "%s\n" "" "This script requires root rights" ""
+    exec sudo bash ${SCRIPT_DIR}/${SCRIPT} "${@}"
+  fi
 }
 
 function error_message() {
@@ -74,23 +103,6 @@ function error_message() {
 
 function prepare_environment() {
   [[ -d ${BASE_DIR} ]] || mkdir -p ${BASE_DIR}
-}
-
-
-function parse_options() {
-  while (( ${#} > 0 )); do
-    case $1 in
-    -g|--group)    shift; GROUP_NAME=${1};;
-    -u|--user)     shift; USER_NAME=${1};;
-    -ou|--old-uid) shift; OLD_UID=${1};;
-    -nu|--new-uid) shift; NEW_UID=${1};; 
-    -og|--old-gid) shift; OLD_GID=${1};;
-    -ng|--new-gid) shift; NEW_GID=${1};;
-    -h|--help)     usage 0;;
-    -*)            usage 1;;
-    esac
-    shift
-  done
 }
 
 function check_options() {
@@ -144,6 +156,7 @@ function change_permission() {
 # -----------------------------------------------------------------------------
 parse_options "${@}"
 check_options
+check_user
 find_mount_points
 prepare_environment
 file_names "${USER_NAME}" "${GROUP_NAME}"
