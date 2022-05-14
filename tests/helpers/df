@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+# -----------------------------------------------------------------------------
+# This script simulates the df command for automated testing scenarios.
+# -----------------------------------------------------------------------------
+
+declare -r NAME=${0##*/}
+declare -r BIN_DIR=$(cd $(dirname ${0}); pwd)
+declare -- PATH=${PATH/${BIN_DIR}/}
+
+export PATH
+
+echo "$(date +%FT%T) -- ${NAME} ${@}" >> ${BIN_DIR}/${NAME}.log
+
+function ltrim() {
+  sed 's/^  //'
+}
+
+case "${@}" in
+'-lP -x tmpfs')
+  cat <<"  DF" | trim
+  Filesystem                1024-blocks      Used Available Capacity Mounted on
+  /dev/mapper/vg--root-root   486058272 412193688  49104472      90% /
+  /dev/nvme0n1p2                 945144    266672    613244      31% /boot
+  /dev/nvme0n1p1                 244988     78526    166462      33% /boot/efi
+  DF
+  ;;
+*) 
+  echo ${NAME} ${@}
+  ;;   
+esac
+

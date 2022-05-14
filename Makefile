@@ -7,13 +7,15 @@ SHELL := bash
 .DELETE_ON_ERROR:
 MAKEFLAGS    += --warn-undefined-variables
 MAKEFLAGS    += --no-builtin-rules
-BASH_VERSION += 4.2
+
 
 # -----------------------------------------------------------------------------
 # Globals
 # -----------------------------------------------------------------------------
-USER_BIN  := $(HOME)/bin
-REPO_NAME := $(shell basename $(CURDIR))
+USER_BIN      := $(HOME)/bin
+REPO_NAME     := $(shell basename $(CURDIR))
+BASH_VERSIONS := 4.0 4.1 4.2 4.3 4.4 5.0 5.1 5.2-rc
+
 
 # -----------------------------------------------------------------------------
 # User install
@@ -45,7 +47,7 @@ test:
 
 test-bash:
 	@echo "Bash tests"
-	declare -a VERSIONS=( 4.2 4.3 4.4 5.0 5.1 5.2-rc );
+	declare -a VERSIONS=( $(BASH_VERSIONS) );
 	function  setup() {
 		apk add \
 			bats \
