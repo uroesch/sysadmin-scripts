@@ -5,6 +5,7 @@
 # -----------------------------------------------------------------------------
 export PATH=${BATS_TEST_DIRNAME}/../bin:${PATH}
 export CORRECT_FILE_PERMISSION_VERSION="v0.9.3"
+export LIST_WWN_VERSION="v0.2.0-beta"
 export TZ=UTC
 
 # -----------------------------------------------------------------------------

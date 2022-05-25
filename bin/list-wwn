@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+
+# -----------------------------------------------------------------------------
+# This script resturns the disk path and the WWN for a mount point
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Setup
+# -----------------------------------------------------------------------------
+set -o errexit
+set -o nounset
+set -o pipefail
+
+# -----------------------------------------------------------------------------
+# Globals
+# -----------------------------------------------------------------------------
+declare -r SCRIPT=${0##*/}
+declare -r VERSION=0.2.0-beta
+declare -r AUTHOR="Urs Roesch <github@bun.ch>"
+declare -r LICENSE="GLPv2"
+declare -a MOUNTPOINTS=()
+declare -r FC_HOST=/sys/class/fc_host/host%d/port_name
+declare -r FC_TRANSPORT=/sys/class/fc_transport/target%d:0:0/port_name
+declare -r FORMAT="%-10s %-20s %-10s %-6s %-6s %-23s %s\n"
+
+# -----------------------------------------------------------------------------
+# Functions
+# -----------------------------------------------------------------------------
+function usage() {
+  local exit_code=${1:-}
+  cat <<USAGE
+    Usage: 
+      ${SCRIPT} [options] <mount-point> [<mount-point> ...]
+
+    Options:
+      -h | --help    This message
+      -V | --version Print out version information and exit.
+USAGE
+  exit ${exit_code}
+}
+
+function parse_options() {
+  while (( ${#} > 0 )); do
+    case ${1} in
+    -h|--help)    usage 0;;
+    -V|--version) version;;
+    -*)           usage 1;;
+    *)            MOUNTPOINTS+=( ${1} );;
+    esac
+    shift
+  done
+}
+
+function version() {
+  printf "%s v%s\nCopyright (c) %s\nLicense - %s\n" \
+    "${SCRIPT}" "${VERSION}" "${AUTHOR}" "${LICENSE}"
+  exit 0
+}
+
+function check_user() {
+  if (( $(id -u) != 0 )); then
+    printf "  %s\n" "" "This script must be run as root!" ""
+    exit 1
+  fi
+}
+
+function get_pvsize() {
+  local blockdev=${1}; shift;
+  pvs --unit g ${blockdev} | \
+    awk -v lv=${lv} '!/PV[[:space:]]+VG/ { print $5 }'
+}
+
+function get_physical() {
+  local mapper=${1}; shift;
+  vg=$(lvs ${mapper} | awk '!/LV[[:space:]]+VG/ { print $2 }')
+  # need to add a space after the vg to ensure
+  # we catch only the one we need
+  pvs | awk -v vg="${vg} " '$0 ~ vg { print $1 }'
+}
+
+function get_devices() {
+  local mountpoint=${1}; shift;
+  local device
+  local name
+  blockdev=$(df -P ${mountpoint} | awk '!/^Filesystem/ { print $1 }')
+  case ${blockdev} in
+  */sd[a-z]|*/mpath[0-9]*) echo ${blockdev};;
+  /dev/mapper/*) get_physical ${blockdev};;
+  esac
+}
+
+function get_ldev() {
+  local device=${1}; shift;
+  device=${device##*/}
+  device=${device%%p[0-9]*}
+  multipath -1 ${device} | \
+    awk -v device=${device} \
+    '$1 == device { print substr( $2,length($2)-6, 6) }'
+}
+
+function get_targets() {
+  local device=${1}; shift;
+  device=${device%%p[0-9] *}
+  multipath -l ${devicet#*/} | \
+    awk -F : \
+      '$0 ~ /[0-9]:[0-9]:[0-9]:[0-9]/ {
+         sub( /[*0-9]*/, "", $1 ); print $1
+       }' | \
+    sort -u
+}
+
+function get_wwn() {
+  local target=$1; shift;
+  local point=$1; shift
+  local format
+  case ${point} in
+  host)    format=${FC_HOST};;
+  storage) format=${FC_TRANSPORT};;
+  esac
+  sed 's/^0x//; s/\([0-9a-f] [0-9a-f])/\1:/g; s/:$//;' \
+    $(printf "${format}" ${target})
+}
+
+function print_header() {
+  printf "${FORMAT}" mountpoint device size lun scsi "host wwn" "storage wwn"
+  printf "${FORMAT}" ---------- -------------------- ---------- ------ \
+                     ------ -------------------------- --------------------------
+}
+
+function print_table() {
+  local -i count=0
+  local -i target_count=0
+  local -a targets
+  for mountpoint in ${MOUNTPOINTS[@]}; do
+    devices=$(get_devices ${mountpoint})
+    for device in ${devices}; do
+      case ${device} in
+      */mpath*)
+        size=$(get_pvsize ${device})
+        targets=( $(get_targets ${device}) )
+        target_count+=${#targets}
+        for target in ${targets[@]}; do
+          host_wwn=$(get_wwn ${target} host)
+          storage_wwn=$(get_wwn ${target} storage)
+          ldev=$(get_ldev ${device})
+          if (( ${count} == 0 )); then
+            print header
+            count+=1
+          fi
+          printf "${FORMAT}" ${mountpoint} ${device} \
+            ${size} "${ldev}" host${target} \
+            ${host_wwn} ${storage_wwn}
+        done
+        ;;
+      *) ;;
+      esac
+    done
+  done
+  return ${target_count}
+}
+
+function main() {
+  (( ${#MOUNTPOINTS[@]} < 1 )) && usage 1 || :
+  if print_table; then   
+    echo ""
+    echo "Did not find any WWN information; maybe this is a virtual host"
+    echo ""
+    exit 1
+  fi
+}
+
+# -----------------------------------------------------------------------------
+# Main
+# -----------------------------------------------------------------------------
+parse_options "${@}"
+check_user
+main
