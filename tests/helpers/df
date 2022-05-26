@@ -26,7 +26,7 @@ case "${@}" in
   DF
   ;;
 *) 
-  echo ${NAME} ${@}
+  command ${NAME} ${@}
   ;;   
 esac
 

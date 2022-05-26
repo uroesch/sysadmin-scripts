@@ -17,7 +17,7 @@ case "${@}" in
   echo "0"
   ;;
 *) 
-  echo ${NAME} ${@}
+  command ${NAME} ${@}
   ;;   
 esac
 
