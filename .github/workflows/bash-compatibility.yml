@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------
 # Verify bash compatibility for sysadmin-scripts
 # Author: Urs Roesch https://github.com/uroesch
-# Version: 0.1.0
+# Version: 0.2.0
 # -----------------------------------------------------------------------------
 name: bash-compatibility
 
@@ -17,42 +17,42 @@ on:
 jobs:
   bash-compatibility:
     timeout-minutes: 15
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
+    container:
+      image: bash:${{ matrix.bash }}
     strategy:
       fail-fast: false
       matrix:
-        os:
-        - ubuntu-latest
         bash:
-        - '4.0'
-        - '4.1'
-        - '4.2'
-        - '4.3'
-        - '4.4'
-        - '5.0'
-        - '5.1'
+          - '4.0'
+          - '4.1'
+          - '4.2'
+          - '4.3'
+          - '4.4'
+          - '5.0'
+          - '5.1'
+          - '5.2'
 
     steps:
+    - name: Install dependencies
+      shell: bash
+      run: |
+        apk add \
+          bats \
+          coreutils \
+          git \
+          grep \
+          make
+
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         fetch-depth: 0
 
-    - name: Loop test
+    - name: Configure git
       shell: bash
-      run: |
-        function setup() {
-          apk add \
-            bats \
-            coreutils \
-            git \
-            grep \
-            make;
-            git config --global --add safe.directory /sysadmin-scripts;
-        }
-        docker run \
-          --tty \
-          --volume $(pwd):/sysadmin-scripts \
-          --workdir /sysadmin-scripts \
-          bash:${{ matrix.bash }} \
-          bash -c "$(declare -f setup); setup && make test && echo \${BASH_VERSION}"
+      run: git config --global --add safe.directory '*';
+
+    - name: Test bash compatibility 
+      shell: bash
+      run: make test 
